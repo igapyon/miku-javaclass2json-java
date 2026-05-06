@@ -1001,6 +1001,25 @@ memory:
 
 このため、生成物は deterministic full aggregation ではなく、streaming generation を優先する。
 
+### Multi-Process Operation
+
+複数プロセスで処理する場合、同じ output directory に同時書き込みしてはいけない。
+
+各プロセスは別々の part directory に出力する。
+
+```text
+.java-class-index-parts/
+  part-001/
+  part-002/
+  part-003/
+```
+
+この CLI は part directory の生成までを担当する。
+
+part directory 群の merge、graph 化、advanced index 作成は別 CLI / 別 tool の責務とする。
+
+既存 output directory を指定した場合、既存 class JSON は後勝ちで上書きされ、`warnings.log` に warning が追記される。大規模運用では fresh output directory を推奨する。
+
 ### Output Layout
 
 MVP の生成物は次の通り。
@@ -1024,6 +1043,24 @@ MVP の生成物は次の通り。
 `classes/<package>/<Class>.json` の `methods[]` には、各 method の `calls[]` も含める。
 これにより、Agent は class JSON 単体を開くだけで、その class 内の method call surface を確認できる。
 
+この tool の出力は、基本的に人間ではなく生成AI / Agent が読むことを想定する。
+
+そのため、JVM descriptor は可読化せず、そのまま出す。
+
+```text
+do:
+  (Ljava/lang/String;)V
+  ([Ljava/lang/String;Ljava/io/PrintStream;Ljava/io/PrintStream;)I
+
+do not:
+  void println(String)
+  int run(String[], PrintStream, PrintStream)
+```
+
+descriptor を Java 風に可読化する処理は、この CLI の責務にしない。必要であれば、後段の Agent-facing CLI / index CLI が view として提供する。
+
+同じ理由で、class JSON は人間向け pretty print を優先しない。サイズ抑止と streaming write を優先する。
+
 `classes.jsonl` は class JSON の探索 index とする。
 
 `symbols.jsonl` は class / method / field の symbol 探索用とする。
@@ -1032,9 +1069,35 @@ MVP の生成物は次の通り。
 
 `method-calls.jsonl` は ASM で bytecode の invoke 系 opcode を読んだ method call 記録とする。
 
+`invokedynamic` は bytecode-level call surface として記録する。
+
+MVP では、lambda、string concatenation、bootstrap method semantics を Java 風の高水準概念に展開しない。
+
+```text
+do:
+  record opcode=invokedynamic
+  record dynamic call name / descriptor
+
+do not:
+  reconstruct lambda source shape
+  expand string-concat recipe
+  infer source-level call graph from bootstrap semantics
+```
+
 `sources.jsonl` は各 class がどの artifact / entry から読まれたかを記録する。
 
 `warnings.log` は JSONL ではなく、人間向けの警告ログとする。
+
+JSONL records do not carry per-row `schemaVersion` in the MVP.
+
+理由は次の通り。
+
+- JSONL は大量行になる
+- 出力は生成AI / Agent と後段 CLI が読む
+- per-row schemaVersion はサイズ増加に直結する
+- 全体 schema は `index.json` とファイル名で判別する
+
+必要になった場合は、後段 CLI が schema-aware view を作る。
 
 ### Duplicate Binary Names
 
@@ -1118,3 +1181,34 @@ this CLI:
 another CLI:
   class JSON / basic JSONL -> graph / index / reports
 ```
+
+### Separate Merge / Graph CLI Outline
+
+別 CLI は、この CLI の part output を入力にする。
+
+想定する入力。
+
+```text
+.java-class-index-parts/
+  part-001/
+  part-002/
+  part-003/
+```
+
+想定する責務。
+
+```text
+merge:
+  classes.jsonl / symbols.jsonl / dependencies.jsonl / method-calls.jsonl / sources.jsonl を統合する
+
+deduplicate:
+  binaryName や artifact 単位の重複 report を作る
+
+graph:
+  dependencies.jsonl / method-calls.jsonl から graph artifact を作る
+
+advanced index:
+  Agent が問い合わせやすい派生 index を作る
+```
+
+この CLI は、上記の merge 済み artifact を直接生成しない。

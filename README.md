@@ -46,12 +46,43 @@ overwrites the earlier one. This tool does not try to resolve that situation as
 a ClassLoader would. It only appends an English warning line with a JST
 timestamp to `warnings.log`.
 
+For large-scale or multi-process runs, each process must write to a separate
+output directory:
+
+```text
+.java-class-index-parts/
+  part-001/
+  part-002/
+  part-003/
+```
+
+Do not write from multiple processes to the same output directory. Existing
+class JSON files are overwritten and warnings are appended, so fresh output
+directories are recommended for large runs.
+
 Graph generation, artifact merging, duplicate aggregation, and advanced search
 indexes are intentionally outside this CLI. They should be built by another CLI
 from the generated JSON / JSONL artifacts.
 
 Per-class JSON files include method-level `calls[]`, while `method-calls.jsonl`
 keeps the same call surface available for cross-class streaming search.
+
+The generated artifacts are primarily for generative AI / agent consumption.
+JVM descriptors are intentionally emitted as-is, and class JSON favors compact
+output over human-oriented pretty formatting.
+
+Common searches:
+
+```sh
+rg '"binaryName":"jp.example.Foo"' .java-class-index/classes.jsonl
+rg '"fromClass":"jp.example.Foo"' .java-class-index/method-calls.jsonl
+rg '"toMethod":"println"' .java-class-index/method-calls.jsonl
+rg '"name":"run"' .java-class-index/classes/jp/example/Foo.json
+```
+
+`invokedynamic` is recorded as a bytecode-level call surface. This CLI does not
+expand lambda bodies, string concatenation recipes, or bootstrap method
+semantics into higher-level Java concepts.
 
 ## Maven Plugin
 
@@ -60,6 +91,23 @@ The first goal is explicit execution only:
 ```sh
 mvn jp.igapyon:miku-javaclass2json-maven-plugin:0.1.0-SNAPSHOT:index
 ```
+
+## Verification
+
+Run unit tests:
+
+```sh
+mvn test
+```
+
+Build the runtime jar and index that jar with itself:
+
+```sh
+sh scripts/smoke-self-jar.sh
+```
+
+The smoke script writes generated artifacts under
+`workplace/smoke-self-jar-index/`.
 
 ## Repository Operation
 
