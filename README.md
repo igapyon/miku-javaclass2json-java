@@ -32,10 +32,26 @@ The generated layout is:
 ```text
 .java-class-index/
   index.json
+  classes.jsonl
   symbols.jsonl
   dependencies.jsonl
+  method-calls.jsonl
+  sources.jsonl
+  warnings.log
   classes/
 ```
+
+If the same binary class name appears more than once, the later class JSON write
+overwrites the earlier one. This tool does not try to resolve that situation as
+a ClassLoader would. It only appends an English warning line with a JST
+timestamp to `warnings.log`.
+
+Graph generation, artifact merging, duplicate aggregation, and advanced search
+indexes are intentionally outside this CLI. They should be built by another CLI
+from the generated JSON / JSONL artifacts.
+
+Per-class JSON files include method-level `calls[]`, while `method-calls.jsonl`
+keeps the same call surface available for cross-class streaming search.
 
 ## Maven Plugin
 

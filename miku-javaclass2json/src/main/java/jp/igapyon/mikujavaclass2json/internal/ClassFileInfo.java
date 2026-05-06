@@ -15,6 +15,7 @@ public class ClassFileInfo implements Comparable<ClassFileInfo> {
     public List<String> interfaces = new ArrayList<String>();
     public List<MemberInfo> fields = new ArrayList<MemberInfo>();
     public List<MemberInfo> methods = new ArrayList<MemberInfo>();
+    public List<MethodCallInfo> methodCalls = new ArrayList<MethodCallInfo>();
     public String sourceArtifact;
 
     public List<String> dependencies() {

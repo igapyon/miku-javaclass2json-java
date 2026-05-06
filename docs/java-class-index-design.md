@@ -954,3 +954,167 @@ Pass 3: optional advanced bytecode analysis such as field access / CFG / data-fl
 ```
 
 ただし初期設計では 2 パスを最低ラインとし、method invocation edge は Pass 2 に含める。Pass 3 相当は optional として扱う。
+
+## Current MVP Implementation Decisions
+
+現時点の MVP 実装では、巨大入力と複数プロセス実行を前提に、完全な重複集約や全 class のメモリ保持を避ける。
+
+### Input Handling
+
+CLI / Maven plugin の core は、指定された入力を bytecode として読む。
+
+```text
+supported input:
+  .class file
+  .jar file
+  classes directory
+  directory that contains .class / .jar files
+```
+
+directory 入力では、配下の `.class` と `.jar` を読む。
+
+reflection / ClassLoader による class loading は、MVP の解析主軸にしない。
+
+理由は次の通り。
+
+- class loading による副作用を避ける
+- dependency jar 不足や初期化順に左右されない
+- `.class` / `.jar` そのものを index 化する product boundary と合う
+- 将来 ASM / Jandex に移行しやすい
+
+### Streaming Write
+
+巨大な jar 群では、全 class metadata をメモリに集約しない。
+
+MVP は次の方針にする。
+
+```text
+scan:
+  input を順に読む
+
+write:
+  class を読んだら、class JSON と JSONL index をその場で書く
+
+memory:
+  全 class 一覧や全 duplicate 情報を保持しない
+```
+
+このため、生成物は deterministic full aggregation ではなく、streaming generation を優先する。
+
+### Output Layout
+
+MVP の生成物は次の通り。
+
+```text
+.java-class-index/
+  index.json
+  classes.jsonl
+  symbols.jsonl
+  dependencies.jsonl
+  method-calls.jsonl
+  sources.jsonl
+  warnings.log
+  classes/
+    <package path>/
+      <Class>.json
+```
+
+`classes/<package>/<Class>.json` は、Agent が必要 class だけを読むための class 単位 JSON とする。
+
+`classes/<package>/<Class>.json` の `methods[]` には、各 method の `calls[]` も含める。
+これにより、Agent は class JSON 単体を開くだけで、その class 内の method call surface を確認できる。
+
+`classes.jsonl` は class JSON の探索 index とする。
+
+`symbols.jsonl` は class / method / field の symbol 探索用とする。
+
+`dependencies.jsonl` は class 間 dependency を後段で探すための JSONL とする。
+
+`method-calls.jsonl` は ASM で bytecode の invoke 系 opcode を読んだ method call 記録とする。
+
+`sources.jsonl` は各 class がどの artifact / entry から読まれたかを記録する。
+
+`warnings.log` は JSONL ではなく、人間向けの警告ログとする。
+
+### Duplicate Binary Names
+
+同一 binary class name が複数回現れた場合、MVP は ClassLoader の解決規則を再現しない。
+
+方針は単純にする。
+
+```text
+same binaryName appears again:
+  write warning line to warnings.log
+  overwrite classes/<package>/<Class>.json
+  continue processing
+```
+
+つまり後勝ちである。
+
+これは「正しい classpath 解決」を表すためではなく、巨大入力と複数プロセス実行でも処理を止めないための割り切りである。
+
+同一 FQCN で内容の違う class が複数ある状態は、通常の Java 実行環境でも classpath 順や packaging に依存して不安定化する。MVP では、これを product が解決すべき semantic conflict とは扱わない。
+
+後段で必要になったら、`sources.jsonl` や generated class JSON 群から duplicate aggregation を別 tool / 別 pass で行う。
+
+### Warning Log
+
+`warnings.log` は文字化けを避けるため、message は ASCII 英文にする。
+
+日時は JST で書く。
+
+例。
+
+```text
+2026-05-06T12:37:21+09:00[Asia/Tokyo] warning: overwriting existing class JSON: binaryName=jp.example.Foo artifact=lib/example.jar entryName=jp/example/Foo.class
+```
+
+### Future Indexing Direction
+
+この MVP は、まず広めに JSON を生成する。
+
+Agent の読み込み負荷は、生成時の強い絞り込みではなく、後段 index で緩和する。
+
+ただし、生成物を元にした graph 作成や高度な index 作成は、この CLI の責務にしない。
+
+`miku-javaclass2json` の責務は、`.class` / `.jar` / directory を読み、class 単位 JSON と基本 JSONL を広めに生成するところまでとする。
+
+Graph、artifact merge、duplicate aggregation、高度な検索 index は、別 CLI / 別 tool の責務とする。
+
+```text
+generate broadly:
+  class JSON を class ごとに分割して生成する
+
+consume elsewhere:
+  symbols.jsonl / dependencies.jsonl / sources.jsonl から必要 class を探す
+
+build derived artifacts in another CLI:
+  graph
+  advanced index
+  duplicate aggregation report
+  artifact merge result
+
+read selectively:
+  classes/**/*.json のうち必要なものだけ読む
+```
+
+将来、必要になった時点で次を追加する。
+
+```text
+possible later in another CLI:
+  include / exclude package
+  artifact-level merge step
+  duplicate aggregation report
+  artifact hash based storage
+  graph / advanced index
+```
+
+この境界により、`miku-javaclass2json` は巨大入力に対する streaming generator として小さく保つ。
+
+```text
+this CLI:
+  bytecode -> class JSON / basic JSONL / method-calls.jsonl
+
+another CLI:
+  class JSON / basic JSONL -> graph / index / reports
+```
