@@ -8,12 +8,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Set;
 
 public final class ClassIndexWriters implements Closeable {
     private final BufferedWriter classes;
     private final BufferedWriter symbols;
     private final BufferedWriter dependencies;
     private final BufferedWriter methodCalls;
+    private final BufferedWriter methodCallSummary;
     private final BufferedWriter sources;
     private final BufferedWriter warnings;
 
@@ -22,6 +24,7 @@ public final class ClassIndexWriters implements Closeable {
         symbols = Files.newBufferedWriter(outputDirectory.resolve("symbols.jsonl"), StandardCharsets.UTF_8);
         dependencies = Files.newBufferedWriter(outputDirectory.resolve("dependencies.jsonl"), StandardCharsets.UTF_8);
         methodCalls = Files.newBufferedWriter(outputDirectory.resolve("method-calls.jsonl"), StandardCharsets.UTF_8);
+        methodCallSummary = Files.newBufferedWriter(outputDirectory.resolve("method-call-summary.jsonl"), StandardCharsets.UTF_8);
         sources = Files.newBufferedWriter(outputDirectory.resolve("sources.jsonl"), StandardCharsets.UTF_8);
         warnings = Files.newBufferedWriter(outputDirectory.resolve("warnings.log"), StandardCharsets.UTF_8, StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND);
@@ -36,12 +39,13 @@ public final class ClassIndexWriters implements Closeable {
         symbols.write(JsonFiles.symbolLines(info));
     }
 
-    public void writeDependencies(ClassFileInfo info, List<String> noDescendPackages) throws IOException {
-        dependencies.write(JsonFiles.dependencyLines(info, noDescendPackages));
+    public void writeDependencies(ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames) throws IOException {
+        dependencies.write(JsonFiles.dependencyLines(info, noDescendPackages, indexedBinaryNames));
     }
 
-    public void writeMethodCalls(ClassFileInfo info) throws IOException {
-        methodCalls.write(JsonFiles.methodCallLines(info));
+    public void writeMethodCalls(ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames) throws IOException {
+        methodCalls.write(JsonFiles.methodCallLines(info, noDescendPackages, indexedBinaryNames));
+        methodCallSummary.write(JsonFiles.methodCallSummaryLines(info, noDescendPackages, indexedBinaryNames));
     }
 
     public void writeSource(ClassFileInfo info, String artifact, String entryName) throws IOException {
@@ -61,6 +65,7 @@ public final class ClassIndexWriters implements Closeable {
         thrown = close(symbols, thrown);
         thrown = close(dependencies, thrown);
         thrown = close(methodCalls, thrown);
+        thrown = close(methodCallSummary, thrown);
         thrown = close(sources, thrown);
         thrown = close(warnings, thrown);
         if (thrown != null) {

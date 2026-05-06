@@ -8,7 +8,10 @@ import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public final class JsonFiles {
     private static final ZoneId JST = ZoneId.of("Asia/Tokyo");
@@ -17,7 +20,8 @@ public final class JsonFiles {
     private JsonFiles() {
     }
 
-    public static Path writeClassJson(Path outputDirectory, ClassFileInfo info, List<String> noDescendPackages) throws IOException {
+    public static Path writeClassJson(Path outputDirectory, ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames)
+            throws IOException {
         Path file = classJsonPath(outputDirectory, info);
         Files.createDirectories(file.getParent());
         BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
@@ -44,7 +48,8 @@ public final class JsonFiles {
             List<String> dependencies = info.dependencies();
             for (int index = 0; index < dependencies.size(); index++) {
                 String dependency = dependencies.get(index);
-                writer.write("    {\"to\":\"" + escape(dependency) + "\",\"targetKind\":\"" + targetKind(dependency, noDescendPackages) + "\"}");
+                writer.write("    {\"to\":\"" + escape(dependency) + "\",\"targetKind\":\""
+                        + targetKind(dependency, noDescendPackages, indexedBinaryNames) + "\"}");
                 writer.write(index + 1 < dependencies.size() ? ",\n" : "\n");
             }
             writer.write("  ]\n");
@@ -71,6 +76,7 @@ public final class JsonFiles {
             property(writer, "symbolsIndex", "symbols.jsonl", 1, true);
             property(writer, "dependenciesIndex", "dependencies.jsonl", 1, true);
             property(writer, "methodCallsIndex", "method-calls.jsonl", 1, true);
+            property(writer, "methodCallSummaryIndex", "method-call-summary.jsonl", 1, true);
             property(writer, "sourcesIndex", "sources.jsonl", 1, true);
             property(writer, "warningsLog", "warnings.log", 1, false);
             writer.write("}\n");
@@ -98,24 +104,55 @@ public final class JsonFiles {
         return builder.toString();
     }
 
-    public static String dependencyLines(ClassFileInfo info, List<String> noDescendPackages) {
+    public static String dependencyLines(ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames) {
         StringBuilder builder = new StringBuilder();
         for (String dependency : info.dependencies()) {
             builder.append("{\"from\":\"").append(escape(info.binaryName)).append("\",\"to\":\"").append(escape(dependency))
-                    .append("\",\"targetKind\":\"").append(targetKind(dependency, noDescendPackages)).append("\"}\n");
+                    .append("\",\"targetKind\":\"").append(targetKind(dependency, noDescendPackages, indexedBinaryNames)).append("\"}\n");
         }
         return builder.toString();
     }
 
-    public static String methodCallLines(ClassFileInfo info) {
+    public static String methodCallLines(ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames) {
         StringBuilder builder = new StringBuilder();
         for (MethodCallInfo call : info.methodCalls) {
+            String targetKind = targetKind(call.toClass, noDescendPackages, indexedBinaryNames);
             builder.append("{\"fromClass\":\"").append(escape(call.fromClass)).append("\",\"fromMethod\":\"")
                     .append(escape(call.fromMethod)).append("\",\"fromDescriptor\":\"").append(escape(call.fromDescriptor))
                     .append("\",\"toClass\":\"").append(escape(call.toClass)).append("\",\"toMethod\":\"")
                     .append(escape(call.toMethod)).append("\",\"toDescriptor\":\"").append(escape(call.toDescriptor))
-                    .append("\",\"opcode\":\"").append(escape(call.opcode)).append("\",\"interfaceCall\":")
-                    .append(call.interfaceCall).append("}\n");
+                    .append("\",\"targetKind\":\"").append(escape(targetKind)).append("\",\"opcode\":\"").append(escape(call.opcode))
+                    .append("\",\"interfaceCall\":").append(call.interfaceCall).append("}\n");
+        }
+        return builder.toString();
+    }
+
+    public static String methodCallSummaryLines(ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames) {
+        Map<String, SummaryCall> calls = new LinkedHashMap<String, SummaryCall>();
+        for (MethodCallInfo call : info.methodCalls) {
+            String targetKind = targetKind(call.toClass, noDescendPackages, indexedBinaryNames);
+            if ("external-platform".equals(targetKind) || "external-api".equals(targetKind)) {
+                continue;
+            }
+            String key = call.fromClass + "\n" + call.fromMethod + "\n" + call.fromDescriptor + "\n" + call.toClass + "\n" + call.toMethod + "\n"
+                    + call.toDescriptor + "\n" + targetKind + "\n" + call.opcode + "\n" + call.interfaceCall;
+            SummaryCall summary = calls.get(key);
+            if (summary == null) {
+                summary = new SummaryCall(call, targetKind);
+                calls.put(key, summary);
+            }
+            summary.count++;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (SummaryCall summary : calls.values()) {
+            MethodCallInfo call = summary.call;
+            builder.append("{\"fromClass\":\"").append(escape(call.fromClass)).append("\",\"fromMethod\":\"")
+                    .append(escape(call.fromMethod)).append("\",\"fromDescriptor\":\"").append(escape(call.fromDescriptor))
+                    .append("\",\"toClass\":\"").append(escape(call.toClass)).append("\",\"toMethod\":\"")
+                    .append(escape(call.toMethod)).append("\",\"toDescriptor\":\"").append(escape(call.toDescriptor))
+                    .append("\",\"targetKind\":\"").append(escape(summary.targetKind)).append("\",\"opcode\":\"").append(escape(call.opcode))
+                    .append("\",\"interfaceCall\":").append(call.interfaceCall).append(",\"count\":").append(summary.count).append("}\n");
         }
         return builder.toString();
     }
@@ -155,7 +192,8 @@ public final class JsonFiles {
         try {
             for (ClassFileInfo info : classes) {
                 for (String dependency : info.dependencies()) {
-                    writer.write("{\"from\":\"" + escape(info.binaryName) + "\",\"to\":\"" + escape(dependency) + "\",\"targetKind\":\"" + targetKind(dependency, noDescendPackages) + "\"}\n");
+                    writer.write("{\"from\":\"" + escape(info.binaryName) + "\",\"to\":\"" + escape(dependency) + "\",\"targetKind\":\""
+                            + targetKind(dependency, noDescendPackages, null) + "\"}\n");
                 }
             }
         } finally {
@@ -223,7 +261,10 @@ public final class JsonFiles {
         }
     }
 
-    private static String targetKind(String binaryName, List<String> noDescendPackages) {
+    private static String targetKind(String binaryName, List<String> noDescendPackages, Set<String> indexedBinaryNames) {
+        if (indexedBinaryNames != null && indexedBinaryNames.contains(binaryName)) {
+            return "internal";
+        }
         for (String pattern : noDescendPackages) {
             String prefix = pattern.endsWith(".*") ? pattern.substring(0, pattern.length() - 1) : pattern;
             if (binaryName.startsWith(prefix)) {
@@ -231,7 +272,7 @@ public final class JsonFiles {
                         ? "external-platform" : "external-api";
             }
         }
-        return "internal";
+        return "external-library";
     }
 
     private static String escape(String value) {
@@ -260,5 +301,16 @@ public final class JsonFiles {
             }
         }
         return builder.toString();
+    }
+
+    private static final class SummaryCall {
+        private final MethodCallInfo call;
+        private final String targetKind;
+        private int count;
+
+        private SummaryCall(MethodCallInfo call, String targetKind) {
+            this.call = call;
+            this.targetKind = targetKind;
+        }
     }
 }

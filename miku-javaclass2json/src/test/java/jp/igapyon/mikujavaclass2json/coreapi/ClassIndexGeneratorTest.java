@@ -36,12 +36,17 @@ public class ClassIndexGeneratorTest {
         assertTrue(Files.exists(output.resolve("symbols.jsonl")));
         assertTrue(Files.exists(output.resolve("dependencies.jsonl")));
         assertTrue(Files.exists(output.resolve("method-calls.jsonl")));
+        assertTrue(Files.exists(output.resolve("method-call-summary.jsonl")));
         assertTrue(Files.exists(output.resolve("sources.jsonl")));
         assertTrue(Files.exists(output.resolve("warnings.log")));
         assertEquals(true, Files.walk(output.resolve("classes")).anyMatch(path -> path.toString().endsWith("ClassIndexGeneratorTest.json")));
         String methodCalls = new String(Files.readAllBytes(output.resolve("method-calls.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(methodCalls.contains("\"opcode\":\"invoke"));
+        assertTrue(methodCalls.contains("\"targetKind\":"));
         assertTrue(methodCalls.contains("\"fromClass\":\"jp.igapyon.mikujavaclass2json.coreapi.ClassIndexGeneratorTest\""));
+        String methodCallSummary = new String(Files.readAllBytes(output.resolve("method-call-summary.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(methodCallSummary.contains("\"targetKind\":\"external-library\""));
+        assertTrue(methodCallSummary.contains("\"count\":"));
         Path classJson = output.resolve("classes/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json");
         String classJsonText = new String(Files.readAllBytes(classJson), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(classJsonText.contains("\"calls\""));
@@ -51,6 +56,9 @@ public class ClassIndexGeneratorTest {
         JsonNode parsedClassJson = JSON.readTree(classJson.toFile());
         assertEquals("java-class-index-class-v1", parsedClassJson.get("schemaVersion").asText());
         assertTrue(parsedClassJson.get("methods").isArray());
+        String dependencies = new String(Files.readAllBytes(output.resolve("dependencies.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(dependencies.contains(
+                "\"to\":\"com.fasterxml.jackson.databind.ObjectMapper\",\"targetKind\":\"external-library\""));
     }
 
     @Test
