@@ -22,7 +22,7 @@ third standalone module at this stage.
 
 ```sh
 mvn package
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.1.0-SNAPSHOT.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.0.jar index \
   --input target/classes \
   --output .java-class-index
 ```
@@ -89,7 +89,7 @@ semantics into higher-level Java concepts.
 The first goal is explicit execution only:
 
 ```sh
-mvn jp.igapyon:miku-javaclass2json-maven-plugin:0.1.0-SNAPSHOT:index
+mvn jp.igapyon:miku-javaclass2json-maven-plugin:0.5.0:index
 ```
 
 ## Verification
