@@ -26,6 +26,11 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -39,6 +44,7 @@
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.4.1</version>
         <configuration>
+          <forceCreation>true</forceCreation>
           <archive>
             <manifest>
               <mainClass>jp.igapyon.mikujavaclass2json.cli.MikuJavaclass2jsonCli</mainClass>
@@ -59,6 +65,19 @@
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
               <shadedArtifactAttached>false</shadedArtifactAttached>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/*/module-info.class</exclude>
+                    <exclude>META-INF/MANIFEST.MF</exclude>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>jp.igapyon.mikujavaclass2json.cli.MikuJavaclass2jsonCli</mainClass>
