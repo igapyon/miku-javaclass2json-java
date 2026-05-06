@@ -1,0 +1,67 @@
+name: Release CLI runtime
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "GitHub Release tag to attach the CLI runtime to"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  release-cli-runtime:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name || github.event.inputs.tag_name || github.ref_name, 'v')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref }}
+
+      - name: Build
+        run: mvn -B package
+
+      - name: Prepare release assets
+        env:
+          TAG_NAME: ${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG_NAME#v}"
+          POM_VERSION="$(awk -F'[<>]' '/<version>/{print $3; exit}' pom.xml)"
+          case "${VERSION}" in
+            "${POM_VERSION}"|"${POM_VERSION}".*) ;;
+            *)
+              echo "Release tag version (${VERSION}) must match pom.xml version (${POM_VERSION}) or add a dot suffix such as ${POM_VERSION}.2." >&2
+              exit 1
+              ;;
+          esac
+
+          mkdir -p release-assets
+          cp "miku-javaclass2json/target/miku-javaclass2json-${POM_VERSION}.jar" "release-assets/miku-javaclass2json-${VERSION}.jar"
+
+      - name: Set up Java 8 for runtime verification
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Verify CLI runtime asset
+        run: java -jar release-assets/miku-javaclass2json-[0-9]*.jar --help
+
+      - name: Upload CLI runtime to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref_name }}
+          files: release-assets/*
+          draft: false
+          prerelease: false

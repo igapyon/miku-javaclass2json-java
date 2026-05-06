@@ -2,12 +2,15 @@
 
 ## High Priority
 
+- Done: Add `.github/workflows/release-cli-runtime.yml` equivalent to `workplace/refs-20/miku-grep-java-devel/.github/workflows/release-cli-runtime.yml` for publishing the CLI runtime jar.
 - Done: Document multi-process operation rules.
 - Done: Add focused input tests for single `.jar`, directory-contained `.jar`, single `.class`, and concrete method call output.
 - Done: Document existing output directory behavior.
 
 ## Medium Priority
 
+- Done: Refactor the Java implementation where it improves maintainability.
+- Done: This project is not a straight Node-to-Java conversion, so Java-native refactoring is allowed.
 - Done: Exclude `module-info.class` from the shaded runtime jar if release packaging should avoid shade warnings.
 - Done: Add Maven plugin execution tests beyond simple instantiation.
 - Done: Decide the intended detail level for `invokedynamic`.
