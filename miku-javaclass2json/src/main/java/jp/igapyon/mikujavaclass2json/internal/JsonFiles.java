@@ -5,14 +5,20 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public final class JsonFiles {
+    private static final ZoneId JST = ZoneId.of("Asia/Tokyo");
+    private static final DateTimeFormatter WARNING_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX'['VV']'");
+
     private JsonFiles() {
     }
 
     public static Path writeClassJson(Path outputDirectory, ClassFileInfo info, List<String> noDescendPackages) throws IOException {
-        Path file = outputDirectory.resolve("classes").resolve(info.binaryName.replace('.', '/') + ".json");
+        Path file = classJsonPath(outputDirectory, info);
         Files.createDirectories(file.getParent());
         BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
         try {
@@ -32,7 +38,7 @@ public final class JsonFiles {
             writer.write("  },\n");
             members(writer, "fields", info.fields);
             writer.write(",\n");
-            members(writer, "methods", info.methods);
+            methods(writer, info);
             writer.write(",\n");
             writer.write("  \"dependencies\": [\n");
             List<String> dependencies = info.dependencies();
@@ -49,25 +55,79 @@ public final class JsonFiles {
         return file;
     }
 
-    public static Path writeIndexJson(Path outputDirectory, List<ClassFileInfo> classes) throws IOException {
+    public static Path classJsonPath(Path outputDirectory, ClassFileInfo info) {
+        return outputDirectory.resolve("classes").resolve(info.binaryName.replace('.', '/') + ".json");
+    }
+
+    public static Path writeIndexJson(Path outputDirectory, int classCount, int warningCount) throws IOException {
         Path file = outputDirectory.resolve("index.json");
         BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
         try {
             writer.write("{\n");
             property(writer, "schemaVersion", "java-class-index-v1", 1, true);
-            writer.write("  \"classCount\": " + classes.size() + ",\n");
-            writer.write("  \"classes\": [\n");
-            for (int index = 0; index < classes.size(); index++) {
-                ClassFileInfo info = classes.get(index);
-                writer.write("    {\"binaryName\":\"" + escape(info.binaryName) + "\",\"path\":\"classes/" + escape(info.binaryName.replace('.', '/')) + ".json\"}");
-                writer.write(index + 1 < classes.size() ? ",\n" : "\n");
-            }
-            writer.write("  ]\n");
+            writer.write("  \"classCount\": " + classCount + ",\n");
+            writer.write("  \"warningCount\": " + warningCount + ",\n");
+            property(writer, "classesIndex", "classes.jsonl", 1, true);
+            property(writer, "symbolsIndex", "symbols.jsonl", 1, true);
+            property(writer, "dependenciesIndex", "dependencies.jsonl", 1, true);
+            property(writer, "methodCallsIndex", "method-calls.jsonl", 1, true);
+            property(writer, "sourcesIndex", "sources.jsonl", 1, true);
+            property(writer, "warningsLog", "warnings.log", 1, false);
             writer.write("}\n");
         } finally {
             writer.close();
         }
         return file;
+    }
+
+    public static String classIndexLine(ClassFileInfo info) {
+        return "{\"binaryName\":\"" + escape(info.binaryName) + "\",\"path\":\"classes/" + escape(info.binaryName.replace('.', '/')) + ".json\"}";
+    }
+
+    public static String symbolLines(ClassFileInfo info) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("{\"kind\":\"class\",\"binaryName\":\"").append(escape(info.binaryName)).append("\"}\n");
+        for (MemberInfo field : info.fields) {
+            builder.append("{\"kind\":\"field\",\"class\":\"").append(escape(info.binaryName)).append("\",\"name\":\"")
+                    .append(escape(field.name)).append("\"}\n");
+        }
+        for (MemberInfo method : info.methods) {
+            builder.append("{\"kind\":\"method\",\"class\":\"").append(escape(info.binaryName)).append("\",\"name\":\"")
+                    .append(escape(method.name)).append("\",\"descriptor\":\"").append(escape(method.descriptor)).append("\"}\n");
+        }
+        return builder.toString();
+    }
+
+    public static String dependencyLines(ClassFileInfo info, List<String> noDescendPackages) {
+        StringBuilder builder = new StringBuilder();
+        for (String dependency : info.dependencies()) {
+            builder.append("{\"from\":\"").append(escape(info.binaryName)).append("\",\"to\":\"").append(escape(dependency))
+                    .append("\",\"targetKind\":\"").append(targetKind(dependency, noDescendPackages)).append("\"}\n");
+        }
+        return builder.toString();
+    }
+
+    public static String methodCallLines(ClassFileInfo info) {
+        StringBuilder builder = new StringBuilder();
+        for (MethodCallInfo call : info.methodCalls) {
+            builder.append("{\"fromClass\":\"").append(escape(call.fromClass)).append("\",\"fromMethod\":\"")
+                    .append(escape(call.fromMethod)).append("\",\"fromDescriptor\":\"").append(escape(call.fromDescriptor))
+                    .append("\",\"toClass\":\"").append(escape(call.toClass)).append("\",\"toMethod\":\"")
+                    .append(escape(call.toMethod)).append("\",\"toDescriptor\":\"").append(escape(call.toDescriptor))
+                    .append("\",\"opcode\":\"").append(escape(call.opcode)).append("\",\"interfaceCall\":")
+                    .append(call.interfaceCall).append("}\n");
+        }
+        return builder.toString();
+    }
+
+    public static String sourceLine(ClassFileInfo info, String artifact, String entryName) {
+        return "{\"binaryName\":\"" + escape(info.binaryName) + "\",\"artifact\":\"" + escape(artifact) + "\",\"entryName\":\""
+                + escape(entryName) + "\"}";
+    }
+
+    public static String warningLine(ClassFileInfo info, String artifact, String entryName, String message) {
+        String timestamp = ZonedDateTime.now(JST).format(WARNING_TIME_FORMAT);
+        return timestamp + " warning: " + message + ": binaryName=" + info.binaryName + " artifact=" + artifact + " entryName=" + entryName;
     }
 
     public static Path writeSymbolsJsonl(Path outputDirectory, List<ClassFileInfo> classes) throws IOException {
@@ -110,6 +170,29 @@ public final class JsonFiles {
             MemberInfo member = members.get(index);
             writer.write("    {\"name\":\"" + escape(member.name) + "\",\"descriptor\":\"" + escape(member.descriptor) + "\"}");
             writer.write(index + 1 < members.size() ? ",\n" : "\n");
+        }
+        writer.write("  ]");
+    }
+
+    private static void methods(BufferedWriter writer, ClassFileInfo info) throws IOException {
+        writer.write("  \"methods\": [\n");
+        for (int index = 0; index < info.methods.size(); index++) {
+            MemberInfo method = info.methods.get(index);
+            writer.write("    {\"name\":\"" + escape(method.name) + "\",\"descriptor\":\"" + escape(method.descriptor) + "\",\"calls\":[");
+            boolean firstCall = true;
+            for (MethodCallInfo call : info.methodCalls) {
+                if (method.name.equals(call.fromMethod) && method.descriptor.equals(call.fromDescriptor)) {
+                    if (!firstCall) {
+                        writer.write(",");
+                    }
+                    writer.write("{\"toClass\":\"" + escape(call.toClass) + "\",\"toMethod\":\"" + escape(call.toMethod)
+                            + "\",\"toDescriptor\":\"" + escape(call.toDescriptor) + "\",\"opcode\":\"" + escape(call.opcode)
+                            + "\",\"interfaceCall\":" + call.interfaceCall + "}");
+                    firstCall = false;
+                }
+            }
+            writer.write("]}");
+            writer.write(index + 1 < info.methods.size() ? ",\n" : "\n");
         }
         writer.write("  ]");
     }

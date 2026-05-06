@@ -6,6 +6,7 @@ import java.util.List;
 
 public class ClassIndexResult {
     private int classCount;
+    private int warningCount;
     private final List<Path> generatedPaths = new ArrayList<Path>();
 
     public int getClassCount() {
@@ -14,6 +15,18 @@ public class ClassIndexResult {
 
     public void setClassCount(int classCount) {
         this.classCount = classCount;
+    }
+
+    public void incrementClassCount() {
+        this.classCount++;
+    }
+
+    public int getWarningCount() {
+        return warningCount;
+    }
+
+    public void incrementWarningCount() {
+        this.warningCount++;
     }
 
     public List<Path> getGeneratedPaths() {

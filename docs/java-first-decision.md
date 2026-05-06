@@ -34,9 +34,18 @@ The first implementation reads `.class`, classes directories, and `.jar` files
 with a small JDK-only class file parser. It emits:
 
 - `index.json`
+- `classes.jsonl`
 - `symbols.jsonl`
 - `dependencies.jsonl`
+- `method-calls.jsonl`
+- `sources.jsonl`
+- `warnings.log`
 - per-class JSON files under `classes/`
+
+When duplicate binary class names appear, the later class JSON write overwrites
+the earlier one. The tool only records an English warning line with a JST
+timestamp because large inputs may be split across multiple processes and global
+duplicate aggregation belongs to a later indexing or merge step.
 
 Jandex or ASM can be added later when annotation values, generic signatures, or
 bytecode instruction-level calls become required.
