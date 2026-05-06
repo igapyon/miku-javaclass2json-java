@@ -1,6 +1,7 @@
 package jp.igapyon.mikujavaclass2json.mavenplugin;
 
 import java.io.File;
+import java.util.Arrays;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -22,6 +23,12 @@ public class MikuJavaclass2jsonMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "miku-javaclass2json.skip")
     private boolean skip;
 
+    @Parameter(property = "miku-javaclass2json.excludePackages")
+    private String[] excludePackages;
+
+    @Parameter(property = "miku-javaclass2json.excludeCallPackages")
+    private String[] excludeCallPackages;
+
     @Override
     public void execute() throws MojoExecutionException {
         if (skip) {
@@ -32,6 +39,8 @@ public class MikuJavaclass2jsonMojo extends AbstractMojo {
             ClassIndexOptions options = new ClassIndexOptions();
             options.setInput(classesDirectory.toPath());
             options.setOutputDirectory(outputDirectory.toPath());
+            options.setExcludePackages(excludePackages == null ? null : Arrays.asList(excludePackages));
+            options.setExcludeCallPackages(excludeCallPackages == null ? null : Arrays.asList(excludeCallPackages));
             ClassIndexResult result = new ClassIndexGenerator().generate(options);
             getLog().info("indexed classes: " + result.getClassCount());
             getLog().info("output: " + outputDirectory);
@@ -50,5 +59,13 @@ public class MikuJavaclass2jsonMojo extends AbstractMojo {
 
     public void setSkip(boolean skip) {
         this.skip = skip;
+    }
+
+    public void setExcludePackages(String[] excludePackages) {
+        this.excludePackages = excludePackages;
+    }
+
+    public void setExcludeCallPackages(String[] excludeCallPackages) {
+        this.excludeCallPackages = excludeCallPackages;
     }
 }

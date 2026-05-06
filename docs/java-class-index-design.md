@@ -255,6 +255,26 @@ noDescendPackages:
 
 参照元 class の fields / methods / annotations に現れた型名は、dependencies として記録する。
 
+大規模システムでは、`noDescendPackages` だけでは JSONL の行数増加を抑えられない。
+入力 artifact に shaded library や生成コードが含まれる場合、`classes.jsonl`、`sources.jsonl`、
+`symbols.jsonl`、`dependencies.jsonl`、`method-calls.jsonl`、method-call summary は
+クラス数・メンバー数・依存数・bytecode call 数に応じて線形に増える。
+
+そのため、索引に参加させないパッケージは `excludePackages` として外から指定する。
+
+```text
+excludePackages:
+  - org.objectweb.*
+  - com.example.generated.*
+```
+
+`excludePackages` は `noDescendPackages` より強い。対象クラス自体を処理対象から外し、
+line-oriented indexes、per-class JSON の dependencies/calls、method-call summary にも出さない。
+
+method call edge だけを落としたい場合は、別に `excludeCallPackages` を使う。
+これは classes / symbols / dependencies を残したまま、`method-calls.jsonl` と summary から
+matching call edge を除外する用途に限定する。
+
 ## Output Layout
 
 class ごとに JSON を分ける。
