@@ -14,6 +14,8 @@ public class ClassIndexOptions {
     private Set<String> knownBinaryNames = new HashSet<String>();
     private List<String> noDescendPackages = new ArrayList<String>(Arrays.asList(
             "java.*", "javax.*", "jakarta.*", "jdk.*", "sun.*", "com.sun.*", "org.w3c.*", "org.xml.*"));
+    private List<String> excludePackages = new ArrayList<String>();
+    private List<String> excludeCallPackages = new ArrayList<String>();
 
     public Path getInput() {
         return input;
@@ -53,5 +55,35 @@ public class ClassIndexOptions {
 
     public void setNoDescendPackages(List<String> noDescendPackages) {
         this.noDescendPackages = noDescendPackages == null ? new ArrayList<String>() : new ArrayList<String>(noDescendPackages);
+    }
+
+    public List<String> getExcludePackages() {
+        return new ArrayList<String>(excludePackages);
+    }
+
+    public void setExcludePackages(List<String> excludePackages) {
+        this.excludePackages = excludePackages == null ? new ArrayList<String>() : new ArrayList<String>(excludePackages);
+    }
+
+    public List<String> getExcludeCallPackages() {
+        return new ArrayList<String>(excludeCallPackages);
+    }
+
+    public void setExcludeCallPackages(List<String> excludeCallPackages) {
+        this.excludeCallPackages = excludeCallPackages == null ? new ArrayList<String>() : new ArrayList<String>(excludeCallPackages);
+    }
+
+    public boolean isExcludedPackage(String binaryName) {
+        return matchesPackage(binaryName, excludePackages);
+    }
+
+    private static boolean matchesPackage(String binaryName, List<String> patterns) {
+        for (String pattern : patterns) {
+            String prefix = pattern.endsWith(".*") ? pattern.substring(0, pattern.length() - 1) : pattern;
+            if (binaryName.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

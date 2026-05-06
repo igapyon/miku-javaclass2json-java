@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
@@ -37,6 +38,7 @@ public class ClassIndexGeneratorTest {
         assertTrue(Files.exists(output.resolve("dependencies.jsonl")));
         assertTrue(Files.exists(output.resolve("method-calls.jsonl")));
         assertTrue(Files.exists(output.resolve("method-call-summary.jsonl")));
+        assertTrue(Files.exists(output.resolve("method-call-reverse-summary.jsonl")));
         assertTrue(Files.exists(output.resolve("sources.jsonl")));
         assertTrue(Files.exists(output.resolve("warnings.log")));
         assertEquals(true, Files.walk(output.resolve("classes")).anyMatch(path -> path.toString().endsWith("ClassIndexGeneratorTest.json")));
@@ -47,12 +49,18 @@ public class ClassIndexGeneratorTest {
         String methodCallSummary = new String(Files.readAllBytes(output.resolve("method-call-summary.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(methodCallSummary.contains("\"targetKind\":\"external-library\""));
         assertTrue(methodCallSummary.contains("\"count\":"));
+        String methodCallReverseSummary = new String(Files.readAllBytes(output.resolve("method-call-reverse-summary.jsonl")),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(methodCallReverseSummary.contains("\"toClass\":"));
+        assertTrue(methodCallReverseSummary.contains("\"fromClass\":\"jp.igapyon.mikujavaclass2json.coreapi.ClassIndexGeneratorTest\""));
+        assertTrue(methodCallReverseSummary.contains("\"count\":"));
         Path classJson = output.resolve("classes/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json");
         String classJsonText = new String(Files.readAllBytes(classJson), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(classJsonText.contains("\"calls\""));
         assertTrue(classJsonText.contains("\"toMethod\""));
         JsonNode indexJson = JSON.readTree(output.resolve("index.json").toFile());
         assertEquals("java-class-index-v1", indexJson.get("schemaVersion").asText());
+        assertEquals("method-call-reverse-summary.jsonl", indexJson.get("methodCallReverseSummaryIndex").asText());
         JsonNode parsedClassJson = JSON.readTree(classJson.toFile());
         assertEquals("java-class-index-class-v1", parsedClassJson.get("schemaVersion").asText());
         assertTrue(parsedClassJson.get("methods").isArray());
@@ -120,6 +128,26 @@ public class ClassIndexGeneratorTest {
     }
 
     @Test
+    public void excludesPackagesFromLineOrientedIndexes() throws Exception {
+        Path output = tempDir.resolve("exclude-index");
+        ClassIndexOptions options = new ClassIndexOptions();
+        options.setInput(findTestClassesDirectory());
+        options.setOutputDirectory(output);
+        options.setExcludePackages(Arrays.asList("jp.igapyon.mikujavaclass2json.cli.*", "com.fasterxml.jackson.*"));
+
+        ClassIndexResult result = new ClassIndexGenerator().generate(options);
+
+        assertTrue(result.getClassCount() > 0);
+        assertFalseContains(output.resolve("classes.jsonl"), "jp.igapyon.mikujavaclass2json.cli.");
+        assertFalseContains(output.resolve("sources.jsonl"), "jp.igapyon.mikujavaclass2json.cli.");
+        assertFalseContains(output.resolve("symbols.jsonl"), "jp.igapyon.mikujavaclass2json.cli.");
+        assertFalseContains(output.resolve("dependencies.jsonl"), "com.fasterxml.jackson.");
+        assertFalseContains(output.resolve("method-calls.jsonl"), "com.fasterxml.jackson.");
+        assertFalseContains(output.resolve("method-call-summary.jsonl"), "com.fasterxml.jackson.");
+        assertFalseContains(output.resolve("method-call-reverse-summary.jsonl"), "com.fasterxml.jackson.");
+    }
+
+    @Test
     public void indexesJarInsideDirectory() throws Exception {
         Path input = tempDir.resolve("jar-dir");
         Files.createDirectories(input);
@@ -156,5 +184,11 @@ public class ClassIndexGeneratorTest {
         } finally {
             output.close();
         }
+    }
+
+    private static void assertFalseContains(Path file, String text) throws Exception {
+        assertTrue(Files.exists(file));
+        String content = new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(!content.contains(text), file + " should not contain " + text);
     }
 }
