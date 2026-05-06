@@ -1,6 +1,7 @@
 package jp.igapyon.mikujavaclass2json.cli;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -9,6 +10,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 
 import jp.igapyon.mikujavaclass2json.coreapi.ClassIndexGenerator;
@@ -27,6 +29,10 @@ public class MikuJavaclass2jsonCli {
         try {
             if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
                 printHelp(out);
+                return 0;
+            }
+            if ("--version".equals(args[0]) || "-v".equals(args[0])) {
+                out.println("miku-javaclass2json " + version());
                 return 0;
             }
             if (!"index".equals(args[0])) {
@@ -161,6 +167,7 @@ public class MikuJavaclass2jsonCli {
         out.println("into JSON / JSONL artifacts for agent and search workflows.");
         out.println();
         out.println("Usage:");
+        out.println("  miku-javaclass2json --version");
         out.println("  miku-javaclass2json index --input <classes-dir|class-file|jar-file> [--output <index-dir>]");
         out.println("  miku-javaclass2json index --phase step1 --input <input> --output <step1-dir> [filters]");
         out.println("  miku-javaclass2json index --phase step2 --input <input> --step1-output <step1-dir|binary-names.jsonl> --output <index-dir> [filters]");
@@ -221,5 +228,33 @@ public class MikuJavaclass2jsonCli {
         out.println("  miku-javaclass2json index --input target/classes --output .java-class-index");
         out.println("  miku-javaclass2json index --input app.jar --output .java-class-index --exclude-package 'org.objectweb.*'");
         out.println("  miku-javaclass2json index --phase step4 --output .java-class-index");
+    }
+
+    private static String version() {
+        String packageVersion = MikuJavaclass2jsonCli.class.getPackage().getImplementationVersion();
+        if (packageVersion != null && !packageVersion.trim().isEmpty()) {
+            return packageVersion;
+        }
+        Properties properties = new Properties();
+        InputStream in = MikuJavaclass2jsonCli.class.getResourceAsStream("version.properties");
+        if (in != null) {
+            try {
+                properties.load(in);
+                String resourceVersion = properties.getProperty("version");
+                if (resourceVersion != null && !resourceVersion.trim().isEmpty()
+                        && !resourceVersion.startsWith("${")) {
+                    return resourceVersion;
+                }
+            } catch (IOException ex) {
+                return "development";
+            } finally {
+                try {
+                    in.close();
+                } catch (IOException ex) {
+                    // Ignore close failure while reporting a best-effort version.
+                }
+            }
+        }
+        return "development";
     }
 }

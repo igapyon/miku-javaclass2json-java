@@ -47,15 +47,21 @@ mvn package
 The runtime CLI jar is created at:
 
 ```text
-miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar
+miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar
 ```
 
 ## CLI Usage
 
+Print the CLI version:
+
+```sh
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar --version
+```
+
 Index compiled classes:
 
 ```sh
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --input target/classes \
   --output .java-class-index
 ```
@@ -63,7 +69,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
 Index a jar:
 
 ```sh
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --input target/example.jar \
   --output .java-class-index
 ```
@@ -73,7 +79,7 @@ If `--output` is omitted, the CLI writes to `.java-class-index`.
 Exclude packages that should not appear in line-oriented indexes:
 
 ```sh
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --input target/example.jar \
   --output .java-class-index \
   --exclude-package 'org.objectweb.*'
@@ -94,7 +100,7 @@ should be filtered.
 For split execution, reverse summary generation is separated as `step4`:
 
 ```sh
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step4 \
   --output .java-class-index
 ```
@@ -104,7 +110,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
 The Maven plugin is currently intended for explicit execution:
 
 ```sh
-mvn jp.igapyon:miku-javaclass2json-maven-plugin:0.5.1:index
+mvn jp.igapyon:miku-javaclass2json-maven-plugin:0.5.2:index
 ```
 
 Plugin parameters:

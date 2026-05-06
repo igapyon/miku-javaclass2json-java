@@ -41,19 +41,19 @@ be filtered.
 Example:
 
 ```sh
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step1 \
   --input target/classes-part-001 \
   --exclude-package 'org.objectweb.*' \
   --output .java-class-index-step1/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step1 \
   --input target/classes-part-002 \
   --exclude-package 'org.objectweb.*' \
   --output .java-class-index-step1/part-002
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step2 \
   --input target/classes-part-001 \
   --exclude-package 'org.objectweb.*' \
@@ -61,7 +61,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step2 \
   --input target/classes-part-002 \
   --exclude-package 'org.objectweb.*' \
@@ -69,7 +69,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-002
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step3 \
   --input target/classes-part-001 \
   --exclude-package 'org.objectweb.*' \
@@ -77,7 +77,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step3 \
   --input target/classes-part-002 \
   --exclude-package 'org.objectweb.*' \
@@ -85,11 +85,11 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-002
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step4 \
   --output .java-class-index-parts/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.1.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --phase step4 \
   --output .java-class-index-parts/part-002
 ```

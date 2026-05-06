@@ -5,7 +5,7 @@
 
   <groupId>jp.igapyon</groupId>
   <artifactId>miku-javaclass2json-java</artifactId>
-  <version>0.5.1</version>
+  <version>0.5.2</version>
   <packaging>pom</packaging>
 
   <name>miku-javaclass2json-java</name>
@@ -48,6 +48,14 @@
   <build>
     <pluginManagement>
       <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+          <configuration>
+            <propertiesEncoding>${project.build.sourceEncoding}</propertiesEncoding>
+          </configuration>
+        </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>

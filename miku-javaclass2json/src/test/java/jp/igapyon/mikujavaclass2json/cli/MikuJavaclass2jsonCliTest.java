@@ -22,11 +22,22 @@ public class MikuJavaclass2jsonCliTest {
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         int exitCode = new MikuJavaclass2jsonCli().run(new String[] { "--help" }, new PrintStream(out), new PrintStream(err));
         assertEquals(0, exitCode);
+        assertTrue(out.toString().contains("miku-javaclass2json --version"));
         assertTrue(out.toString().contains("miku-javaclass2json index"));
         assertTrue(out.toString().contains("Generated files:"));
         assertTrue(out.toString().contains("method-call-reverse-summary.jsonl"));
         assertTrue(out.toString().contains("--exclude-package"));
         assertTrue(out.toString().contains("Large-system guidance:"));
+    }
+
+    @Test
+    public void versionReturnsZero() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        int exitCode = new MikuJavaclass2jsonCli().run(new String[] { "--version" }, new PrintStream(out), new PrintStream(err));
+        assertEquals(0, exitCode);
+        assertEquals("miku-javaclass2json 0.5.2\n", out.toString());
+        assertEquals("", err.toString());
     }
 
     @Test
