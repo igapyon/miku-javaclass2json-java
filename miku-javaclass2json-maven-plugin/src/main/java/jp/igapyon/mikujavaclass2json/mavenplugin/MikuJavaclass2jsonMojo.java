@@ -23,6 +23,9 @@ public class MikuJavaclass2jsonMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "miku-javaclass2json.skip")
     private boolean skip;
 
+    @Parameter(defaultValue = "false", property = "miku-javaclass2json.verbose")
+    private boolean verbose;
+
     @Parameter(property = "miku-javaclass2json.excludePackages")
     private String[] excludePackages;
 
@@ -41,6 +44,9 @@ public class MikuJavaclass2jsonMojo extends AbstractMojo {
             options.setOutputDirectory(outputDirectory.toPath());
             options.setExcludePackages(excludePackages == null ? null : Arrays.asList(excludePackages));
             options.setExcludeCallPackages(excludeCallPackages == null ? null : Arrays.asList(excludeCallPackages));
+            if (verbose) {
+                options.setProgressListener((step, message) -> getLog().info("[verbose] " + step + ": " + message));
+            }
             ClassIndexResult result = new ClassIndexGenerator().generate(options);
             getLog().info("indexed classes: " + result.getClassCount());
             getLog().info("output: " + outputDirectory);
@@ -59,6 +65,10 @@ public class MikuJavaclass2jsonMojo extends AbstractMojo {
 
     public void setSkip(boolean skip) {
         this.skip = skip;
+    }
+
+    public void setVerbose(boolean verbose) {
+        this.verbose = verbose;
     }
 
     public void setExcludePackages(String[] excludePackages) {

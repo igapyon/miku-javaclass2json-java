@@ -24,6 +24,7 @@ public class MikuJavaclass2jsonMojoTest {
         MikuJavaclass2jsonMojo mojo = new MikuJavaclass2jsonMojo();
         mojo.setClassesDirectory(new File("target/test-classes"));
         mojo.setOutputDirectory(tempDir.resolve("plugin-index").toFile());
+        mojo.setVerbose(true);
 
         mojo.execute();
 

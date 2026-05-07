@@ -16,6 +16,7 @@ public class ClassIndexOptions {
             "java.*", "javax.*", "jakarta.*", "jdk.*", "sun.*", "com.sun.*", "org.w3c.*", "org.xml.*"));
     private List<String> excludePackages = new ArrayList<String>();
     private List<String> excludeCallPackages = new ArrayList<String>();
+    private ClassIndexProgressListener progressListener;
 
     public Path getInput() {
         return input;
@@ -71,6 +72,20 @@ public class ClassIndexOptions {
 
     public void setExcludeCallPackages(List<String> excludeCallPackages) {
         this.excludeCallPackages = excludeCallPackages == null ? new ArrayList<String>() : new ArrayList<String>(excludeCallPackages);
+    }
+
+    public ClassIndexProgressListener getProgressListener() {
+        return progressListener;
+    }
+
+    public void setProgressListener(ClassIndexProgressListener progressListener) {
+        this.progressListener = progressListener;
+    }
+
+    public void reportProgress(String step, String message) {
+        if (progressListener != null) {
+            progressListener.onProgress(step, message);
+        }
     }
 
     public boolean isExcludedPackage(String binaryName) {

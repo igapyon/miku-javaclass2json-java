@@ -4,7 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT_DIR"
 
-JAR="miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar"
+JAR="miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar"
 OUTPUT="workplace/smoke-self-jar-index"
 
 mvn package

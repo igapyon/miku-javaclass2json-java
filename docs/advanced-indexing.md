@@ -22,8 +22,9 @@ directories are recommended for large runs.
 For split execution, run the phases explicitly:
 
 - `step1` collects binary class names.
-- `step2` writes per-class JSON using one or more `step1` outputs as the
-  global internal-class name set.
+- `step2` writes top-level per-class JSON using one or more `step1` outputs as
+  the global internal-class name set. Nested and anonymous `$` classes are
+  embedded in their top-level class JSON as `nestedClasses[]`.
 - `step3` writes the surrounding JSONL indexes and `index.json`.
 - `step4` writes derived reverse indexes from the step3 JSONL output.
 
@@ -41,19 +42,19 @@ be filtered.
 Example:
 
 ```sh
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step1 \
   --input target/classes-part-001 \
   --exclude-package 'org.objectweb.*' \
   --output .java-class-index-step1/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step1 \
   --input target/classes-part-002 \
   --exclude-package 'org.objectweb.*' \
   --output .java-class-index-step1/part-002
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step2 \
   --input target/classes-part-001 \
   --exclude-package 'org.objectweb.*' \
@@ -61,7 +62,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step2 \
   --input target/classes-part-002 \
   --exclude-package 'org.objectweb.*' \
@@ -69,7 +70,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-002
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step3 \
   --input target/classes-part-001 \
   --exclude-package 'org.objectweb.*' \
@@ -77,7 +78,7 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step3 \
   --input target/classes-part-002 \
   --exclude-package 'org.objectweb.*' \
@@ -85,11 +86,11 @@ java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
   --step1-output .java-class-index-step1/part-002 \
   --output .java-class-index-parts/part-002
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step4 \
   --output .java-class-index-parts/part-001
 
-java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.2.jar index \
+java -jar miku-javaclass2json/target/miku-javaclass2json-0.5.4.jar index \
   --phase step4 \
   --output .java-class-index-parts/part-002
 ```
