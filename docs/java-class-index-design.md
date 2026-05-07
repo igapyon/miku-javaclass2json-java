@@ -296,27 +296,30 @@ class ごとに JSON を分ける。
   index.json
   symbols.jsonl
   dependencies.jsonl
-  classes/
+  cls/
     jp/
       igapyon/
         example/
           FooService.json
-          FooService$Inner.json
           BarRepository.json
 ```
 
 package は directory で表す。
 
 ```text
-classes/jp/igapyon/example/FooService.json
+cls/jp/igapyon/example/FooService.json
 => jp.igapyon.example.FooService
 ```
 
-内部クラスは JVM の binary name に合わせて `$` を使う。
+内部クラスや匿名クラスは JVM の binary name に `$` を保持するが、
+ファイル名には展開しない。top-level class JSON の `nestedClasses[]`
+に内包する。
 
 ```text
-FooService$Inner.json
-FooService$Inner$Nested.json
+FooService.json
+  identity.binaryName = jp.igapyon.example.FooService
+  nestedClasses[].identity.binaryName = jp.igapyon.example.FooService$Inner
+  nestedClasses[].identity.binaryName = jp.igapyon.example.FooService$Inner$Nested
 ```
 
 ## Class JSON File Format
@@ -449,11 +452,11 @@ Agent 検索では `$` でも `.` でも引っかかるように、両方を持�
 
 ```text
 do:
-  classes/jp/igapyon/example/FooService.json を作る
+  cls/jp/igapyon/example/FooService.json を作る
   FooService.json の dependencies に java.lang.String を書く
 
 do not:
-  classes/java/lang/String.json を作る
+  cls/java/lang/String.json を作る
   java.lang.String の fields / methods を reflection して展開する
 ```
 
@@ -652,13 +655,13 @@ FQCN と class JSON path の対応を持つ discovery index。
     {
       "binaryName": "jp.igapyon.example.FooService",
       "canonicalName": "jp.igapyon.example.FooService",
-      "path": "classes/jp/igapyon/example/FooService.json",
+      "path": "cls/jp/igapyon/example/FooService.json",
       "kind": "class"
     },
     {
       "binaryName": "jp.igapyon.example.FooService$Inner",
       "canonicalName": "jp.igapyon.example.FooService.Inner",
-      "path": "classes/jp/igapyon/example/FooService$Inner.json",
+      "path": "cls/jp/igapyon/example/FooService.json",
       "kind": "class"
     }
   ]
@@ -670,9 +673,9 @@ FQCN と class JSON path の対応を持つ discovery index。
 symbol 検索用。`rg` や JSONL reader で小さく検索できる。
 
 ```jsonl
-{"kind":"class","name":"jp.igapyon.example.FooService","path":"classes/jp/igapyon/example/FooService.json"}
-{"kind":"field","owner":"jp.igapyon.example.FooService","name":"repository","type":"jp.igapyon.example.BarRepository","path":"classes/jp/igapyon/example/FooService.json"}
-{"kind":"method","owner":"jp.igapyon.example.FooService","name":"findAll","signature":"public java.util.List<jp.igapyon.example.Foo> findAll()","path":"classes/jp/igapyon/example/FooService.json"}
+{"kind":"class","name":"jp.igapyon.example.FooService","path":"cls/jp/igapyon/example/FooService.json"}
+{"kind":"field","owner":"jp.igapyon.example.FooService","name":"repository","type":"jp.igapyon.example.BarRepository","path":"cls/jp/igapyon/example/FooService.json"}
+{"kind":"method","owner":"jp.igapyon.example.FooService","name":"findAll","signature":"public java.util.List<jp.igapyon.example.Foo> findAll()","path":"cls/jp/igapyon/example/FooService.json"}
 ```
 
 ### dependencies.jsonl
@@ -734,8 +737,8 @@ reflection 風モデルだけでは普通扱わないが bytecode 解析なら�
 
 ```text
 package = directory
-class file = SimpleName.json
-inner class = Outer$Inner.json
+top-level class file = SimpleName.json
+inner / anonymous class = embedded in top-level JSON as nestedClasses[]
 FQCN = class JSON identity + index.json に持つ
 external package class = dependency としては記録するが class JSON は生成しない
 ```
@@ -1004,7 +1007,10 @@ reflection / ClassLoader による class loading は、MVP の解析主軸にし
 
 ### Streaming Write
 
-巨大な jar 群では、全 class metadata をメモリに集約しない。
+巨大な jar 群では、JSONL は streaming write を優先する。ただし
+per-class JSON は top-level class 単位で `$` class を `nestedClasses[]`
+に内包するため、現在の MVP 実装では class metadata を一度読み込んで
+top-level binary name ごとに group 化する。
 
 MVP は次の方針にする。
 
@@ -1013,13 +1019,16 @@ scan:
   input を順に読む
 
 write:
-  class を読んだら、class JSON と JSONL index をその場で書く
+  JSONL index は class ごとに書く
+  class JSON は top-level class group ごとに書く
 
 memory:
-  全 class 一覧や全 duplicate 情報を保持しない
+  per-class JSON grouping のため class 一覧を保持する
+  duplicate aggregation report は作らない
 ```
 
-このため、生成物は deterministic full aggregation ではなく、streaming generation を優先する。
+このため、生成物は graph / artifact-level merge までは集約しないが、
+per-class JSON の path 長を抑えるための top-level grouping は行う。
 
 ### Multi-Process Operation
 
@@ -1053,15 +1062,21 @@ MVP の生成物は次の通り。
   method-calls.jsonl
   sources.jsonl
   warnings.log
-  classes/
+  cls/
     <package path>/
       <Class>.json
 ```
 
-`classes/<package>/<Class>.json` は、Agent が必要 class だけを読むための class 単位 JSON とする。
+`cls/<package>/<Class>.json` は、Agent が必要 class だけを読むための class 単位 JSON とする。
 
-`classes/<package>/<Class>.json` の `methods[]` には、各 method の `calls[]` も含める。
+`cls/<package>/<Class>.json` の `methods[]` には、各 method の `calls[]` も含める。
 これにより、Agent は class JSON 単体を開くだけで、その class 内の method call surface を確認できる。
+
+`$` を含む nested / anonymous class は別ファイルにせず、top-level class
+JSON の `nestedClasses[]` に入れる。`binaryName` は `Foo$Inner` のような
+JVM binary name のまま保持する。`classes.jsonl`、`symbols.jsonl`、
+`dependencies.jsonl`、`method-calls.jsonl` には `$` 付き binaryName を残し、
+`classes.jsonl` の `path` は top-level class JSON を指す。
 
 この tool の出力は、基本的に人間ではなく生成AI / Agent が読むことを想定する。
 
@@ -1128,7 +1143,7 @@ JSONL records do not carry per-row `schemaVersion` in the MVP.
 ```text
 same binaryName appears again:
   write warning line to warnings.log
-  overwrite classes/<package>/<Class>.json
+  later class data wins inside cls/<package>/<TopLevelClass>.json
   continue processing
 ```
 
@@ -1166,7 +1181,8 @@ Graph、artifact merge、duplicate aggregation、高度な検索 index は、別
 
 ```text
 generate broadly:
-  class JSON を class ごとに分割して生成する
+  class JSON を top-level class ごとに分割して生成する
+  nested / anonymous `$` class は nestedClasses[] に内包する
 
 consume elsewhere:
   symbols.jsonl / dependencies.jsonl / sources.jsonl から必要 class を探す
@@ -1178,7 +1194,7 @@ build derived artifacts in another CLI:
   artifact merge result
 
 read selectively:
-  classes/**/*.json のうち必要なものだけ読む
+  cls/**/*.json のうち必要なものだけ読む
 ```
 
 将来、必要になった時点で次を追加する。

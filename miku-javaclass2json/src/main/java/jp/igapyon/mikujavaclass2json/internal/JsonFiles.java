@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class JsonFiles {
+    public static final String CLASS_JSON_DIRECTORY = "cls";
     private static final ZoneId JST = ZoneId.of("Asia/Tokyo");
     private static final DateTimeFormatter WARNING_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX'['VV']'");
 
@@ -29,37 +30,24 @@ public final class JsonFiles {
 
     public static Path writeClassJson(Path outputDirectory, ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames,
             List<String> excludePackages, List<String> excludeCallPackages) throws IOException {
-        Path file = classJsonPath(outputDirectory, info);
+        return writeClassJson(outputDirectory, java.util.Collections.singletonList(info), noDescendPackages, indexedBinaryNames, excludePackages,
+                excludeCallPackages);
+    }
+
+    public static Path writeClassJson(Path outputDirectory, List<ClassFileInfo> classGroup, List<String> noDescendPackages,
+            Set<String> indexedBinaryNames, List<String> excludePackages, List<String> excludeCallPackages) throws IOException {
+        if (classGroup == null || classGroup.isEmpty()) {
+            throw new IllegalArgumentException("classGroup is required");
+        }
+        ClassFileInfo primary = primaryClass(classGroup);
+        Path file = classJsonPath(outputDirectory, primary);
         Files.createDirectories(file.getParent());
         BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
         try {
             writer.write("{\n");
             property(writer, "schemaVersion", "java-class-index-class-v1", 1, true);
-            writer.write("  \"identity\": {\n");
-            property(writer, "binaryName", info.binaryName, 2, true);
-            property(writer, "canonicalName", info.canonicalName, 2, true);
-            property(writer, "packageName", info.packageName, 2, true);
-            property(writer, "simpleName", info.simpleName, 2, true);
-            property(writer, "kind", info.kind, 2, true);
-            property(writer, "sourceArtifact", info.sourceArtifact, 2, false);
-            writer.write("  },\n");
-            writer.write("  \"inheritance\": {\n");
-            property(writer, "superClass", info.superClass, 2, true);
-            stringArray(writer, "interfaces", info.interfaces, 2, false);
-            writer.write("  },\n");
-            members(writer, "fields", info.fields);
-            writer.write(",\n");
-            methods(writer, info, excludePackages, excludeCallPackages);
-            writer.write(",\n");
-            writer.write("  \"dependencies\": [\n");
-            List<String> dependencies = filteredDependencies(info, excludePackages);
-            for (int index = 0; index < dependencies.size(); index++) {
-                String dependency = dependencies.get(index);
-                writer.write("    {\"to\":\"" + escape(dependency) + "\",\"targetKind\":\""
-                        + targetKind(dependency, noDescendPackages, indexedBinaryNames) + "\"}");
-                writer.write(index + 1 < dependencies.size() ? ",\n" : "\n");
-            }
-            writer.write("  ]\n");
+            classFields(writer, primary, noDescendPackages, indexedBinaryNames, excludePackages, excludeCallPackages, 1, true);
+            nestedClasses(writer, primary, classGroup, noDescendPackages, indexedBinaryNames, excludePackages, excludeCallPackages, 1);
             writer.write("}\n");
         } finally {
             writer.close();
@@ -68,7 +56,7 @@ public final class JsonFiles {
     }
 
     public static Path classJsonPath(Path outputDirectory, ClassFileInfo info) {
-        return outputDirectory.resolve("classes").resolve(info.binaryName.replace('.', '/') + ".json");
+        return outputDirectory.resolve(CLASS_JSON_DIRECTORY).resolve(topLevelBinaryName(info.binaryName).replace('.', '/') + ".json");
     }
 
     public static Path writeIndexJson(Path outputDirectory, int classCount, int warningCount) throws IOException {
@@ -101,7 +89,13 @@ public final class JsonFiles {
     }
 
     public static String classIndexLine(ClassFileInfo info) {
-        return "{\"binaryName\":\"" + escape(info.binaryName) + "\",\"path\":\"classes/" + escape(info.binaryName.replace('.', '/')) + ".json\"}";
+        return "{\"binaryName\":\"" + escape(info.binaryName) + "\",\"path\":\"" + CLASS_JSON_DIRECTORY + "/"
+                + escape(topLevelBinaryName(info.binaryName).replace('.', '/')) + ".json\"}";
+    }
+
+    public static String topLevelBinaryName(String binaryName) {
+        int index = binaryName.indexOf('$');
+        return index < 0 ? binaryName : binaryName.substring(0, index);
     }
 
     public static String symbolLines(ClassFileInfo info) {
@@ -233,22 +227,98 @@ public final class JsonFiles {
         return file;
     }
 
-    private static void members(BufferedWriter writer, String name, List<MemberInfo> members) throws IOException {
-        writer.write("  \"" + name + "\": [\n");
+    private static void classFields(BufferedWriter writer, ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames,
+            List<String> excludePackages, List<String> excludeCallPackages, int indent, boolean commaAfterDependencies) throws IOException {
+        spaces(writer, indent);
+        writer.write("\"identity\": {\n");
+        property(writer, "binaryName", info.binaryName, indent + 1, true);
+        property(writer, "canonicalName", info.canonicalName, indent + 1, true);
+        property(writer, "packageName", info.packageName, indent + 1, true);
+        property(writer, "simpleName", info.simpleName, indent + 1, true);
+        property(writer, "kind", info.kind, indent + 1, true);
+        property(writer, "sourceArtifact", info.sourceArtifact, indent + 1, false);
+        spaces(writer, indent);
+        writer.write("},\n");
+        spaces(writer, indent);
+        writer.write("\"inheritance\": {\n");
+        property(writer, "superClass", info.superClass, indent + 1, true);
+        stringArray(writer, "interfaces", info.interfaces, indent + 1, false);
+        spaces(writer, indent);
+        writer.write("},\n");
+        members(writer, "fields", info.fields, indent);
+        writer.write(",\n");
+        methods(writer, info, excludePackages, excludeCallPackages, indent);
+        writer.write(",\n");
+        dependencies(writer, info, noDescendPackages, indexedBinaryNames, excludePackages, indent);
+        writer.write(commaAfterDependencies ? ",\n" : "\n");
+    }
+
+    private static void nestedClasses(BufferedWriter writer, ClassFileInfo primary, List<ClassFileInfo> classGroup, List<String> noDescendPackages,
+            Set<String> indexedBinaryNames, List<String> excludePackages, List<String> excludeCallPackages, int indent) throws IOException {
+        spaces(writer, indent);
+        writer.write("\"nestedClasses\": [\n");
+        boolean first = true;
+        for (ClassFileInfo nested : classGroup) {
+            if (nested.binaryName.equals(primary.binaryName)) {
+                continue;
+            }
+            if (!first) {
+                writer.write(",\n");
+            }
+            spaces(writer, indent + 1);
+            writer.write("{\n");
+            classFields(writer, nested, noDescendPackages, indexedBinaryNames, excludePackages, excludeCallPackages, indent + 2, false);
+            spaces(writer, indent + 1);
+            writer.write("}");
+            first = false;
+        }
+        writer.write(first ? "" : "\n");
+        spaces(writer, indent);
+        writer.write("]\n");
+    }
+
+    private static void dependencies(BufferedWriter writer, ClassFileInfo info, List<String> noDescendPackages, Set<String> indexedBinaryNames,
+            List<String> excludePackages, int indent) throws IOException {
+        spaces(writer, indent);
+        writer.write("\"dependencies\": [\n");
+        List<String> dependencies = filteredDependencies(info, excludePackages);
+        for (int index = 0; index < dependencies.size(); index++) {
+            String dependency = dependencies.get(index);
+            spaces(writer, indent + 1);
+            writer.write("{\"to\":\"" + escape(dependency) + "\",\"targetKind\":\"" + targetKind(dependency, noDescendPackages, indexedBinaryNames)
+                    + "\"}");
+            writer.write(index + 1 < dependencies.size() ? ",\n" : "\n");
+        }
+        spaces(writer, indent);
+        writer.write("]");
+    }
+
+    private static void members(BufferedWriter writer, String name, List<MemberInfo> members, int indent) throws IOException {
+        spaces(writer, indent);
+        writer.write("\"" + name + "\": [\n");
         for (int index = 0; index < members.size(); index++) {
             MemberInfo member = members.get(index);
-            writer.write("    {\"name\":\"" + escape(member.name) + "\",\"descriptor\":\"" + escape(member.descriptor) + "\"}");
+            spaces(writer, indent + 1);
+            writer.write("{\"name\":\"" + escape(member.name) + "\",\"descriptor\":\"" + escape(member.descriptor) + "\"}");
             writer.write(index + 1 < members.size() ? ",\n" : "\n");
         }
-        writer.write("  ]");
+        spaces(writer, indent);
+        writer.write("]");
     }
 
     private static void methods(BufferedWriter writer, ClassFileInfo info, List<String> excludePackages, List<String> excludeCallPackages)
             throws IOException {
-        writer.write("  \"methods\": [\n");
+        methods(writer, info, excludePackages, excludeCallPackages, 1);
+    }
+
+    private static void methods(BufferedWriter writer, ClassFileInfo info, List<String> excludePackages, List<String> excludeCallPackages, int indent)
+            throws IOException {
+        spaces(writer, indent);
+        writer.write("\"methods\": [\n");
         for (int index = 0; index < info.methods.size(); index++) {
             MemberInfo method = info.methods.get(index);
-            writer.write("    {\"name\":\"" + escape(method.name) + "\",\"descriptor\":\"" + escape(method.descriptor) + "\",\"calls\":[");
+            spaces(writer, indent + 1);
+            writer.write("{\"name\":\"" + escape(method.name) + "\",\"descriptor\":\"" + escape(method.descriptor) + "\",\"calls\":[");
             boolean firstCall = true;
             for (MethodCallInfo call : info.methodCalls) {
                 if (isExcludedCall(call, excludePackages, excludeCallPackages)) {
@@ -267,7 +337,8 @@ public final class JsonFiles {
             writer.write("]}");
             writer.write(index + 1 < info.methods.size() ? ",\n" : "\n");
         }
-        writer.write("  ]");
+        spaces(writer, indent);
+        writer.write("]");
     }
 
     private static void property(BufferedWriter writer, String name, String value, int indent, boolean comma) throws IOException {
@@ -356,6 +427,16 @@ public final class JsonFiles {
             }
         }
         return dependencies;
+    }
+
+    private static ClassFileInfo primaryClass(List<ClassFileInfo> classGroup) {
+        String topLevelBinaryName = topLevelBinaryName(classGroup.get(0).binaryName);
+        for (ClassFileInfo info : classGroup) {
+            if (topLevelBinaryName.equals(info.binaryName)) {
+                return info;
+            }
+        }
+        return classGroup.get(0);
     }
 
     private static String methodCallReverseSummaryLine(String line) {

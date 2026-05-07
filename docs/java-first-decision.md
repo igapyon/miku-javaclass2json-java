@@ -40,12 +40,13 @@ with a small JDK-only class file parser. It emits:
 - `method-calls.jsonl`
 - `sources.jsonl`
 - `warnings.log`
-- per-class JSON files under `classes/`
+- per-class JSON files under `cls/`; nested and anonymous `$` classes are
+  embedded in their top-level class JSON as `nestedClasses[]`
 
-When duplicate binary class names appear, the later class JSON write overwrites
-the earlier one. The tool only records an English warning line with a JST
-timestamp because large inputs may be split across multiple processes and global
-duplicate aggregation belongs to a later indexing or merge step.
+When duplicate binary class names appear, the later class data wins in the
+generated JSON. The tool only records an English warning line with a JST
+timestamp because large inputs may be split across multiple processes and
+global duplicate aggregation belongs to a later indexing or merge step.
 
 Jandex or ASM can be added later when annotation values, generic signatures, or
 bytecode instruction-level calls become required.

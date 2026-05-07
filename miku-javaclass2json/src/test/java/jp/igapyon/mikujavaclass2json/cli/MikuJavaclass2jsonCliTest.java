@@ -27,6 +27,7 @@ public class MikuJavaclass2jsonCliTest {
         assertTrue(out.toString().contains("Generated files:"));
         assertTrue(out.toString().contains("method-call-reverse-summary.jsonl"));
         assertTrue(out.toString().contains("--exclude-package"));
+        assertTrue(out.toString().contains("--verbose"));
         assertTrue(out.toString().contains("Large-system guidance:"));
     }
 
@@ -36,7 +37,7 @@ public class MikuJavaclass2jsonCliTest {
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         int exitCode = new MikuJavaclass2jsonCli().run(new String[] { "--version" }, new PrintStream(out), new PrintStream(err));
         assertEquals(0, exitCode);
-        assertEquals("miku-javaclass2json 0.5.2\n", out.toString());
+        assertEquals("miku-javaclass2json 0.5.4\n", out.toString());
         assertEquals("", err.toString());
     }
 
@@ -67,6 +68,39 @@ public class MikuJavaclass2jsonCliTest {
     }
 
     @Test
+    public void verboseIndexCommandPrintsProgressToErr() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        Path output = tempDir.resolve("verbose-index");
+
+        int exitCode = new MikuJavaclass2jsonCli().run(
+                new String[] { "index", "--verbose", "--input", "target/test-classes", "--output", output.toString() }, new PrintStream(out),
+                new PrintStream(err));
+
+        assertEquals(0, exitCode);
+        assertTrue(out.toString().contains("indexed classes:"));
+        assertTrue(err.toString().contains("[verbose] all: starting index command"));
+        assertTrue(err.toString().contains("[verbose] all: step1 reading class input:"));
+        assertTrue(err.toString().contains("[verbose] all: step4 writing reverse method-call summary"));
+        assertTrue(err.toString().contains("[verbose] all: completed index command"));
+    }
+
+    @Test
+    public void verboseCanBeUsedBeforeIndexCommand() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        Path output = tempDir.resolve("verbose-global-index");
+
+        int exitCode = new MikuJavaclass2jsonCli().run(
+                new String[] { "--verbose", "index", "--input", "target/test-classes", "--output", output.toString() }, new PrintStream(out),
+                new PrintStream(err));
+
+        assertEquals(0, exitCode);
+        assertTrue(out.toString().contains("indexed classes:"));
+        assertTrue(err.toString().contains("[verbose] all: starting index command"));
+    }
+
+    @Test
     public void splitPhaseCommandsGenerateOutput() {
         Path names = tempDir.resolve("names");
         ByteArrayOutputStream collectOut = new ByteArrayOutputStream();
@@ -89,7 +123,7 @@ public class MikuJavaclass2jsonCliTest {
 
         assertEquals(0, writeExitCode);
         assertTrue(writeOut.toString().contains("step2 class JSON files:"));
-        assertTrue(Files.exists(output.resolve("classes")));
+        assertTrue(Files.exists(output.resolve("cls")));
 
         ByteArrayOutputStream indexOut = new ByteArrayOutputStream();
         ByteArrayOutputStream indexErr = new ByteArrayOutputStream();
@@ -114,5 +148,30 @@ public class MikuJavaclass2jsonCliTest {
         assertEquals(0, reverseExitCode);
         assertTrue(reverseOut.toString().contains("step4 reverse index files:"));
         assertTrue(Files.exists(output.resolve("method-call-reverse-summary.jsonl")));
+    }
+
+    @Test
+    public void splitPhaseCommandsUseOutputAsDefaultStep1Output() {
+        Path output = tempDir.resolve("same-output-split-index");
+        ByteArrayOutputStream collectOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream collectErr = new ByteArrayOutputStream();
+
+        int collectExitCode = new MikuJavaclass2jsonCli().run(
+                new String[] { "index", "--phase", "step1", "--input", "target/test-classes", "--output", output.toString() },
+                new PrintStream(collectOut), new PrintStream(collectErr));
+
+        assertEquals(0, collectExitCode);
+        assertTrue(Files.exists(output.resolve("binary-names.jsonl")));
+
+        ByteArrayOutputStream writeOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream writeErr = new ByteArrayOutputStream();
+
+        int writeExitCode = new MikuJavaclass2jsonCli().run(
+                new String[] { "index", "--phase", "step2", "--input", "target/test-classes", "--output", output.toString() },
+                new PrintStream(writeOut), new PrintStream(writeErr));
+
+        assertEquals(0, writeExitCode);
+        assertTrue(writeOut.toString().contains("step2 class JSON files:"));
+        assertTrue(Files.exists(output.resolve("cls")));
     }
 }

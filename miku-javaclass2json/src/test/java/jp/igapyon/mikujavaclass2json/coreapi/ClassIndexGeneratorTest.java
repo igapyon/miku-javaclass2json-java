@@ -41,7 +41,7 @@ public class ClassIndexGeneratorTest {
         assertTrue(Files.exists(output.resolve("method-call-reverse-summary.jsonl")));
         assertTrue(Files.exists(output.resolve("sources.jsonl")));
         assertTrue(Files.exists(output.resolve("warnings.log")));
-        assertEquals(true, Files.walk(output.resolve("classes")).anyMatch(path -> path.toString().endsWith("ClassIndexGeneratorTest.json")));
+        assertEquals(true, Files.walk(output.resolve("cls")).anyMatch(path -> path.toString().endsWith("ClassIndexGeneratorTest.json")));
         String methodCalls = new String(Files.readAllBytes(output.resolve("method-calls.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(methodCalls.contains("\"opcode\":\"invoke"));
         assertTrue(methodCalls.contains("\"targetKind\":"));
@@ -54,7 +54,7 @@ public class ClassIndexGeneratorTest {
         assertTrue(methodCallReverseSummary.contains("\"toClass\":"));
         assertTrue(methodCallReverseSummary.contains("\"fromClass\":\"jp.igapyon.mikujavaclass2json.coreapi.ClassIndexGeneratorTest\""));
         assertTrue(methodCallReverseSummary.contains("\"count\":"));
-        Path classJson = output.resolve("classes/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json");
+        Path classJson = output.resolve("cls/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json");
         String classJsonText = new String(Files.readAllBytes(classJson), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(classJsonText.contains("\"calls\""));
         assertTrue(classJsonText.contains("\"toMethod\""));
@@ -64,6 +64,12 @@ public class ClassIndexGeneratorTest {
         JsonNode parsedClassJson = JSON.readTree(classJson.toFile());
         assertEquals("java-class-index-class-v1", parsedClassJson.get("schemaVersion").asText());
         assertTrue(parsedClassJson.get("methods").isArray());
+        assertTrue(parsedClassJson.get("nestedClasses").isArray());
+        assertTrue(classJsonText.contains("\"binaryName\": \"jp.igapyon.mikujavaclass2json.coreapi.ClassIndexGeneratorTest$NestedSample\""));
+        assertTrue(!Files.exists(output.resolve("cls/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest$NestedSample.json")));
+        String classesIndex = new String(Files.readAllBytes(output.resolve("classes.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(classesIndex.contains("\"binaryName\":\"jp.igapyon.mikujavaclass2json.coreapi.ClassIndexGeneratorTest$NestedSample\""));
+        assertTrue(classesIndex.contains("\"path\":\"cls/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json\""));
         String dependencies = new String(Files.readAllBytes(output.resolve("dependencies.jsonl")), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(dependencies.contains(
                 "\"to\":\"com.fasterxml.jackson.databind.ObjectMapper\",\"targetKind\":\"external-library\""));
@@ -104,7 +110,7 @@ public class ClassIndexGeneratorTest {
         ClassIndexResult result = new ClassIndexGenerator().generate(options);
 
         assertEquals(1, result.getClassCount());
-        assertTrue(Files.exists(output.resolve("classes/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json")));
+        assertTrue(Files.exists(output.resolve("cls/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json")));
         assertTrue(new String(Files.readAllBytes(output.resolve("sources.jsonl")), java.nio.charset.StandardCharsets.UTF_8)
                 .contains("ClassIndexGeneratorTest.class"));
     }
@@ -162,7 +168,7 @@ public class ClassIndexGeneratorTest {
         ClassIndexResult result = new ClassIndexGenerator().generate(options);
 
         assertEquals(1, result.getClassCount());
-        assertTrue(Files.exists(output.resolve("classes/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json")));
+        assertTrue(Files.exists(output.resolve("cls/jp/igapyon/mikujavaclass2json/coreapi/ClassIndexGeneratorTest.json")));
         assertTrue(new String(Files.readAllBytes(output.resolve("sources.jsonl")), java.nio.charset.StandardCharsets.UTF_8)
                 .contains("nested.jar"));
     }
@@ -190,5 +196,11 @@ public class ClassIndexGeneratorTest {
         assertTrue(Files.exists(file));
         String content = new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(!content.contains(text), file + " should not contain " + text);
+    }
+
+    private static final class NestedSample {
+        private String value() {
+            return "nested";
+        }
     }
 }

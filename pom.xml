@@ -5,7 +5,7 @@
 
   <groupId>jp.igapyon</groupId>
   <artifactId>miku-javaclass2json-java</artifactId>
-  <version>0.5.2</version>
+  <version>0.5.4</version>
   <packaging>pom</packaging>
 
   <name>miku-javaclass2json-java</name>
@@ -70,6 +70,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.2.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.3.1</version>
         </plugin>
       </plugins>
     </pluginManagement>
