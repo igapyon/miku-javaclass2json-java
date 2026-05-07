@@ -48,6 +48,7 @@ jobs:
 
           mkdir -p release-assets
           cp "miku-javaclass2json/target/miku-javaclass2json-${POM_VERSION}.jar" "release-assets/miku-javaclass2json-${VERSION}.jar"
+          cp "miku-javaclass2json/target/miku-javaclass2json-${POM_VERSION}-sources.jar" "release-assets/miku-javaclass2json-${VERSION}-sources.jar"
 
       - name: Set up Java 8 for runtime verification
         uses: actions/setup-java@v4
@@ -56,7 +57,12 @@ jobs:
           java-version: "8"
 
       - name: Verify CLI runtime asset
-        run: java -jar release-assets/miku-javaclass2json-[0-9]*.jar --help
+        env:
+          TAG_NAME: ${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG_NAME#v}"
+          java -jar "release-assets/miku-javaclass2json-${VERSION}.jar" --help
 
       - name: Upload CLI runtime to GitHub Release
         uses: softprops/action-gh-release@v2
